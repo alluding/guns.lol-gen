@@ -14,7 +14,7 @@ class SolverConfig(BaseModel):
     proxy: str
     host: str
     rqdata: Optional[str] = None
-    useragent: Optional[str] = None
+    user_agent: Optional[str] = None
 
 
 logger: logging.Logger = logging.getLogger("Solver")
@@ -35,7 +35,7 @@ class Solver:
         try:
             payload: Dict[str, str] = {
                 key: getattr(self.config, key)
-                for key in ("host", "sitekey", "proxy", "useragent", "rqdata")
+                for key in ("host", "sitekey", "proxy", "user_agent", "rqdata")
                 if hasattr(self.config, key)
             }
 
