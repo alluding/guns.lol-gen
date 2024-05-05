@@ -17,7 +17,12 @@ PATTERN: re.Pattern = re.compile(r"https:\/\/guns\.lol\/verify\/[0-9a-f]{64}")
 with open("config.json", "rb") as f:
     config_data: Dict[str, Any] = orjson.loads(f.read().decode("utf-8"))
 
-
+logger: logging.Logger = logging.getLogger("Generator")
+logger.setLevel(logging.DEBUG)
+if (handler := logging.StreamHandler()):
+    handler.setFormatter(Logger())
+    logger.addHandler(handler)
+    
 class Guns:
     def __init__(self) -> None:
         self.session: Session = Session(
