@@ -1,21 +1,18 @@
 from __future__ import annotations
-from typing import (
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Any
-)
-
-from curl_cffi.requests import Session, Cookies
-
-import orjson
+from typing import Dict, List, Optional, Any
+import re
 import random
 import string
 import logging
-
+import orjson
+from curl_cffi.requests import Session, Cookies
 from guns.solver import Solver, SolverConfig
 from guns.logger import Logger
+from guns.mail import Mail
+
+PATTERN: re.Pattern = re.compile(r"https:\/\/guns\.lol\/verify\/[0-9a-f]{64}")
+with open("config.json", "rb") as f:
+    config_data: Dict[str, Any] = orjson.loads(f.read().decode("utf-8"))
 
 
 class Guns:
@@ -34,9 +31,8 @@ class Guns:
                 "user-agent": "Mozilla/5.0 (Linux i582 x86_64) AppleWebKit/535.47 (KHTML, like Gecko) Chrome/119.0.1621.282 Safari/537",
             }
         )
-        self.config_logger()
 
-    def config_logger(self) -> None:
+        self.mail: Optional[Mail] = None
         self.logger: logging.Logger = logging.getLogger("Generator")
         self.logger.setLevel(logging.DEBUG)
         if (handler := logging.StreamHandler()):
@@ -50,13 +46,6 @@ class Guns:
     ) -> str:
         return f"{prefix}_{''.join(random.choices(string.digits, k=length))}"
 
-    def random_email(
-        self,
-        prefix: str,
-        domain: Literal["gmail.com", "hotmail.com", "yahoo.com"] = "gmail.com"
-    ) -> str:
-        return f"{self.random_username(prefix, 3)}@{domain}"
-
     def get_cookies(self) -> Cookies:
         response = self.session.get(
             "https://guns.lol/",
@@ -64,11 +53,37 @@ class Guns:
         )
         return response.cookies
 
+    def verify(
+        self,
+        email: str,
+        username: str
+    ) -> None:
+        if self.mail is None:
+            self.logger.error("Mail object is not initialized.")
+            return 
+
+        while True:
+            for mail in self.mail.fetch_inbox():
+                content = self.mail.get_message_content(mail["id"])
+                if "To verify your account" in content:
+                    verify_id: str = PATTERN.findall(content)[0].split("verify/")[1]
+
+                    response = self.session.post(
+                        "https://guns.lol/verify",
+                        json={"id": verify_id}
+                    ).text
+                    if '"success":true' in response:
+                        self.logger.info(f"Successfully verified account. | {username} » {email}")
+                    
+                    if not '"success":true' in response:
+                        self.logger.error(f"Failed to verify account. | {username} » {email}")
+
+                    return
+
     def register(self) -> None:
         _cookies = self.get_cookies()
 
-        with open("config.json", "rb") as f:
-            config_data: Dict[str, Any] = orjson.loads(f.read().decode("utf-8"))
+        self.mail = Mail(proxy="http://" + config_data["solver"]["proxy"])
 
         captcha_config = SolverConfig(
             apikey=str(config_data["solver"]["key"]),
@@ -85,12 +100,9 @@ class Guns:
 
         if len(username) > 14:
             self.logger.error(f"{username} exceeds the 14 character limit!")
-            return False
+            return
 
-        email: str = self.random_email(
-            prefix=config_data["username"],
-            domain=random.choice(["gmail.com", "hotmail.com", "yahoo.com"])
-        )
+        email: str = self.mail.get_mail()
 
         payload: Dict[str, str] = orjson.dumps({
             "username": username,
@@ -113,11 +125,23 @@ class Guns:
                 },
                 allow_redirects=False
             )
-            
-            print(response.text)
-            self.logger.info(f"{username} » {email}")
+
+            if response.status_code == 200:
+                self.logger.info(
+                    f"Verification email sent. | {username} » {email}"
+                )
+                self.verify(email, username)
+
+            if not response.status_code == 200:
+                self.logger.error(
+                    f"Failed to send verification email. » {email}"
+                )
+
         except Exception as e:
             self.logger.error(f"Failed to create guns.lol account! » {e}")
 
 
-Guns().register()
+guns = Guns()
+
+for _ in range(config_data["accounts"]):
+    guns.register()
