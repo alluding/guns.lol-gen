@@ -63,8 +63,7 @@ class Solver:
                 if result["task"].get("state") == "processing":
                     continue
 
-                self.logger.info(
-                    f"Successfully solved captcha » {result['task']['time']}")
+                self.logger.info(f"Successfully solved captcha » {result['task']['time']}")
                 return result["task"].get("captcha_key")
         except Exception as e:
             self.logger.error(f"Failed to solve captcha » {e}")
