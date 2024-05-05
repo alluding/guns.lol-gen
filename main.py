@@ -21,7 +21,7 @@ from guns.logger import Logger
 class Guns:
     def __init__(self) -> None:
         self.session: Session = Session(
-            impersonate="chrome123",
+            impersonate="chrome119",
             headers={
                 "accept": "*/*",
                 "accept-language": "en-US,en;q=0.9",
@@ -31,7 +31,7 @@ class Guns:
                 "sec-fetch-dest": "empty",
                 "sec-fetch-mode": "cors",
                 "sec-fetch-site": "same-origin",
-                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+                "user-agent": "Mozilla/5.0 (Linux i582 x86_64) AppleWebKit/535.47 (KHTML, like Gecko) Chrome/119.0.1621.282 Safari/537",
             }
         )
         self.config_logger()
