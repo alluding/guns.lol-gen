@@ -35,7 +35,7 @@ class Solver:
         try:
             payload: Dict[str, str] = {
                 key: getattr(self.config, key)
-                for key in ("host", "sitekey", "proxy")
+                for key in ("host", "sitekey", "proxy", "useragent", "rqdata")
                 if hasattr(self.config, key)
             }
 
