@@ -68,8 +68,7 @@ class Guns:
         _cookies = self.get_cookies()
 
         with open("config.json", "rb") as f:
-            config_data: Dict[str, Any] = orjson.loads(
-                f.read().decode("utf-8"))
+            config_data: Dict[str, Any] = orjson.loads(f.read().decode("utf-8"))
 
         captcha_config = SolverConfig(
             apikey=str(config_data["solver"]["key"]),
