@@ -17,7 +17,6 @@ import logging
 from guns.solver import Solver, SolverConfig
 from guns.logger import Logger
 
-
 class Guns:
     def __init__(self) -> None:
         self.session: Session = Session(
@@ -78,7 +77,7 @@ class Guns:
         )
         captcha = Solver(captcha_config)
 
-        payload: Dict[str, str] = {
+        payload: Dict[str, str] = orjson.dumps({
             "username": self.random_username(
                 prefix=config_data["username"],
                 length=5
@@ -89,7 +88,7 @@ class Guns:
                 domain=random.choice(["gmail.com", "hotmail.com", "yahoo.com"])
             ),
             "captcha": captcha.solve()
-        }
+        }).decode("utf-8")
 
         try:
             response = self.session.post(
