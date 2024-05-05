@@ -1,10 +1,13 @@
 from __future__ import annotations
 from typing import Dict, List, Optional, Any
+
 import re
 import random
 import string
 import logging
 import orjson
+from threading import Thread, active_count
+
 from curl_cffi.requests import Session, Cookies
 from guns.solver import Solver, SolverConfig
 from guns.logger import Logger
@@ -33,11 +36,6 @@ class Guns:
         )
 
         self.mail: Optional[Mail] = None
-        self.logger: logging.Logger = logging.getLogger("Generator")
-        self.logger.setLevel(logging.DEBUG)
-        if (handler := logging.StreamHandler()):
-            handler.setFormatter(Logger())
-            self.logger.addHandler(handler)
 
     def random_username(
         self,
@@ -47,11 +45,7 @@ class Guns:
         return f"{prefix}_{''.join(random.choices(string.digits, k=length))}"
 
     def get_cookies(self) -> Cookies:
-        response = self.session.get(
-            "https://guns.lol/",
-            allow_redirects=True
-        )
-        return response.cookies
+        return self.session.get("https://guns.lol/", allow_redirects=True).cookies
 
     def verify(
         self,
@@ -59,26 +53,35 @@ class Guns:
         username: str
     ) -> None:
         if self.mail is None:
-            self.logger.error("Mail object is not initialized.")
-            return 
+            logger.error("Mail object is not initialized.")
+            return
 
-        while True:
-            for mail in self.mail.fetch_inbox():
-                content = self.mail.get_message_content(mail["id"])
-                if "To verify your account" in content:
-                    verify_id: str = PATTERN.findall(content)[0].split("verify/")[1]
+        for mail in self.mail.fetch_inbox():
+            content = self.mail.get_message_content(mail["id"])
+            if "To verify your account" in content:
+                verify_id: str = PATTERN.findall(content)[0].split("verify/")[1]
 
-                    response = self.session.post(
-                        "https://guns.lol/verify",
-                        json={"id": verify_id}
-                    ).text
-                    if '"success":true' in response:
-                        self.logger.info(f"Successfully verified account. | {username} » {email}")
-                    
-                    if not '"success":true' in response:
-                        self.logger.error(f"Failed to verify account. | {username} » {email}")
+                response = self.session.post(
+                    "https://guns.lol/verify",
+                    json={"id": verify_id}
+                ).text
+                if '"success":true' in response:
+                    logger.info(
+                        f"Successfully verified account. | {username} » {email}"
+                    )
 
-                    return
+                    with open("./data/registered.txt", "a+") as file:
+                        file.write(
+                            f"{username}:{email}:lmfaogunslol123#$#$\n"
+                        )
+                    file.close()
+
+                else:
+                    logger.error(
+                        f"Failed to verify account. | {username} » {email}"
+                    )
+
+                return
 
     def register(self) -> None:
         _cookies = self.get_cookies()
@@ -99,7 +102,7 @@ class Guns:
         )
 
         if len(username) > 14:
-            self.logger.error(f"{username} exceeds the 14 character limit!")
+            logger.error(f"{username} exceeds the 14 character limit!")
             return
 
         email: str = self.mail.get_mail()
@@ -115,10 +118,6 @@ class Guns:
             response = self.session.post(
                 "https://guns.lol/api/register-acc",
                 data=payload,
-                # proxies={
-                #     "http": "http://" + config_data["solver"]["proxy"],
-                #     "https": "http://" + config_data["solver"]["proxy"]
-                # },
                 cookies={
                     "_1__bProxy_v": _cookies.get("_1__bProxy_v"),
                     "cf_clearance": "Dvzr3jMSksqgkp5siqkBNlQLebbck1rxYckwkM5mKPM-1714865345-1.0.1.1-0nQQxA5wt_u3EEmDr9wyIdZ9Gr4H1JrWBofy6XiD4GhwGMNgUyD3a5PkYhL9vpZLZpi58_uA26yYsMXDGeLtWA"
@@ -127,21 +126,19 @@ class Guns:
             )
 
             if response.status_code == 200:
-                self.logger.info(
+                logger.info(
                     f"Verification email sent. | {username} » {email}"
                 )
                 self.verify(email, username)
 
-            if not response.status_code == 200:
-                self.logger.error(
+            if response.status_code != 200:
+                logger.error(
                     f"Failed to send verification email. » {email}"
                 )
 
         except Exception as e:
-            self.logger.error(f"Failed to create guns.lol account! » {e}")
+            logger.error(f"Failed to create guns.lol account! » {e}")
 
-
-guns = Guns()
-
-for _ in range(config_data["accounts"]):
-    guns.register()
+while True:
+    while active_count()-1 < config_data["threads"]:
+        Thread(target=Guns().register).start()
