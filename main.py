@@ -17,6 +17,7 @@ import logging
 from guns.solver import Solver, SolverConfig
 from guns.logger import Logger
 
+
 class Guns:
     def __init__(self) -> None:
         self.session: Session = Session(
@@ -77,16 +78,24 @@ class Guns:
         )
         captcha = Solver(captcha_config)
 
+        username: str = self.random_username(
+            prefix=config_data["username"],
+            length=3
+        )
+
+        if len(username) > 14:
+            self.logger.error(f"{username} exceeds the 14 character limit!")
+            return False
+
+        email: str = self.random_email(
+            prefix=config_data["username"],
+            domain=random.choice(["gmail.com", "hotmail.com", "yahoo.com"])
+        )
+
         payload: Dict[str, str] = orjson.dumps({
-            "username": self.random_username(
-                prefix=config_data["username"],
-                length=5
-            ),
+            "username": username,
             "password": "lmfaogunslol123#$#$",
-            "email": self.random_email(
-                prefix=config_data["username"],
-                domain=random.choice(["gmail.com", "hotmail.com", "yahoo.com"])
-            ),
+            "email": email,
             "captcha": captcha.solve()
         }).decode("utf-8")
 
@@ -94,17 +103,19 @@ class Guns:
             response = self.session.post(
                 "https://guns.lol/api/register-acc",
                 data=payload,
-                proxies={
-                    "http": "http://" + config_data["solver"]["proxy"],
-                    "https": "http://" + config_data["solver"]["proxy"]
-                },
+                # proxies={
+                #     "http": "http://" + config_data["solver"]["proxy"],
+                #     "https": "http://" + config_data["solver"]["proxy"]
+                # },
                 cookies={
                     "_1__bProxy_v": _cookies.get("_1__bProxy_v"),
                     "cf_clearance": "Dvzr3jMSksqgkp5siqkBNlQLebbck1rxYckwkM5mKPM-1714865345-1.0.1.1-0nQQxA5wt_u3EEmDr9wyIdZ9Gr4H1JrWBofy6XiD4GhwGMNgUyD3a5PkYhL9vpZLZpi58_uA26yYsMXDGeLtWA"
                 },
-                allow_redirects=True
+                allow_redirects=False
             )
+            
             print(response.text)
+            self.logger.info(f"{username} » {email}")
         except Exception as e:
             self.logger.error(f"Failed to create guns.lol account! » {e}")
 
