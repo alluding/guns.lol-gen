@@ -1,8 +1,8 @@
 """
 Fix of @imvast MailGw wrapper.
 """
-
-from typing import Optional, List, Dict
+from __future__ import annotations
+from typing import Optional, List, Dict, Any
 
 import httpx
 import random
@@ -12,10 +12,11 @@ import logging
 
 logger: logging.Logger = logging.getLogger("Generator")
 
-
-class Mail:
+class Mail(httpx.Client):
+    BASE_URL: str = "https://api.mail.gw"
+    
     def __init__(self, proxy: str = None, timeout: int = 15) -> None:
-        self.session: httpx.Client = httpx.Client(
+        super().__init__(
             headers={
                 "accept": "application/json, text/plain, */*",
                 "accept-language": "en-US,en;q=0.9",
@@ -30,28 +31,26 @@ class Mail:
             timeout=timeout,
             proxies=proxy
         )
-        self.base_url: str = "https://api.mail.gw"
 
-    def get_domains(self) -> List[str]:
-        response = self.session.get(f"{self.base_url}/domains").json()
-        domains = [item["domain"] for item in response.get("hydra:member", [])]
-        return domains
+    def get_domains(self: Mail) -> List[str]:
+        response = self.get(f"{self.base_url}/domains").json()
+        return [item["domain"] for item in response.get("hydra:member", [])]
 
     def get_token(
-        self,
+        self: Mail,
         data: str
     ) -> None:
-        response = self.session.post(
+        response = self.post(
             f"{self.base_url}/token",
             json={"address": data, "password": data}
         )
         if token := response.json().get("token"):
-            self.session.headers["authorization"] = f"Bearer {token}"
+            self.headers["authorization"] = f"Bearer {token}"
 
     def get_mail(
-        self,
-        name: str = None,
-        password: str = None,
+        self: Mail,
+        name: Optional[str] = None,
+        password: Optional[str] = None,
         domain: Optional[str] = None
     ) -> str:
         name: str = name or "".join(random.choice(string.ascii_lowercase) for _ in range(15))
@@ -59,7 +58,7 @@ class Mail:
         mail: str = f"{name}@{domain}"
 
         try:
-            response = self.session.post(
+            response = self.post(
                 f"{self.base_url}/accounts",
                 json={"address": mail, "password": mail}
             )
@@ -72,14 +71,11 @@ class Mail:
         except Exception as e:
             logger.error(f"Failed to create email! - {mail} » {e}")
 
-    def fetch_inbox(self) -> List[Dict]:
-        response = self.session.get(f"{self.base_url}/messages").json()
-        return response.get("hydra:member", [])
+    def fetch_inbox(self: Mail) -> List[Dict]:
+        return self.get(f"{self.base_url}/messages").json().get("hydra:member", [])
 
-    def get_message(self, message_id: str) -> Dict:
-        response = self.session.get(f"{self.base_url}/messages/{message_id}").json()
-        return response
+    def get_message(self: Mail, message_id: str) -> Dict[Any, Any]:
+        return self.session.get(f"{self.base_url}/messages/{message_id}").json()
 
-    def get_message_content(self, message_id: str) -> str:
-        message = self.get_message(message_id)
-        return message.get("text", "")
+    def get_message_content(self: Mail, message_id: str) -> str:
+        return self.get_message(message_id).get("text", "")
