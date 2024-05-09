@@ -67,7 +67,7 @@ class Guns:
                 verify_id: str = PATTERN.findall(content)[0].split("verify/")[1]
 
                 response = self.session.post(
-                    "https://guns.lol/verify",
+                    "https://guns.lol/api/verify",
                     json={"id": verify_id}
                 ).text
                 if '"success":true' in response:
